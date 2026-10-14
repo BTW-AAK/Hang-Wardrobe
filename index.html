@@ -1,0 +1,1584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hang — Wardrobe Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5EEE1;
+    --surface:#FFFBF3;
+    --surface-2:#EFE4D2;
+    --ink:#33271C;
+    --ink-muted:#8A7A67;
+    --rust:#B54E2B;
+    --rust-soft:#E7C7AE;
+    --sage:#707A57;
+    --sage-soft:#DCE2CC;
+    --line:#DDCBAE;
+    --danger:#9C3B2E;
+    --shadow: 0 2px 10px rgba(51,39,28,0.08), 0 1px 2px rgba(51,39,28,0.06);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{ font-family:'Fraunces',serif; font-weight:600; margin:0; letter-spacing:-0.01em;}
+  .mono{ font-family:'IBM Plex Mono',monospace; letter-spacing:0.02em; }
+  button{ font-family:'Inter',sans-serif; cursor:pointer; }
+  a{ color:inherit; }
+
+  /* ---------- Layout shell ---------- */
+  #app{ display:flex; min-height:100vh; }
+  .sidebar{
+    width:220px; flex-shrink:0; background:var(--surface);
+    border-right:1px solid var(--line); padding:28px 18px;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; padding:0 10px 24px; }
+  .brand .mark{ font-size:26px; }
+  .brand h1{ font-size:22px; color:var(--rust); }
+  .nav-item{
+    display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:10px;
+    color:var(--ink-muted); font-weight:600; font-size:14.5px; background:none; border:none;
+    text-align:left; width:100%;
+  }
+  .nav-item svg{ width:18px; height:18px; flex-shrink:0; }
+  .nav-item.active{ background:var(--rust-soft); color:var(--rust); }
+  .nav-item:hover:not(.active){ background:var(--surface-2); }
+  .sidebar-foot{ margin-top:auto; padding:10px; font-size:12px; color:var(--ink-muted); }
+
+  main{ flex:1; min-width:0; padding:32px 40px 100px; max-width:1100px; }
+  .topbar-mobile{ display:none; }
+  .view-header{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:22px; gap:12px; flex-wrap:wrap;}
+  .view-header h2{ font-size:28px; }
+  .view-sub{ color:var(--ink-muted); font-size:13.5px; margin-top:4px; }
+
+  .btn{
+    border-radius:10px; border:none; padding:10px 16px; font-weight:600; font-size:14px;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .btn-primary{ background:var(--rust); color:#fff; }
+  .btn-primary:hover{ background:#9c4324; }
+  .btn-ghost{ background:var(--surface-2); color:var(--ink); }
+  .btn-ghost:hover{ background:var(--line); }
+  .btn-text{ background:none; color:var(--ink-muted); padding:8px 10px; }
+  .btn-danger{ background:none; color:var(--danger); font-weight:600; }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+  /* ---------- Filter bar ---------- */
+  .filter-bar{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; align-items:center; }
+  .chip{
+    border:1px solid var(--line); background:var(--surface); color:var(--ink-muted);
+    border-radius:20px; padding:6px 13px; font-size:13px; font-weight:600;
+  }
+  .chip.active{ background:var(--ink); color:var(--bg); border-color:var(--ink); }
+  .search-input, select, input[type=text]{
+    border:1px solid var(--line); background:var(--surface); border-radius:9px;
+    padding:9px 12px; font-size:13.5px; color:var(--ink); font-family:'Inter',sans-serif;
+  }
+  .search-input{ min-width:180px; }
+
+  /* ---------- Tag card (signature element) ---------- */
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:18px; }
+  .tag-card{
+    position:relative; background:var(--surface); border:1px dashed var(--line);
+    border-radius:14px; padding:12px; cursor:pointer; transition:transform .15s, box-shadow .15s;
+  }
+  .tag-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow); }
+  .tag-hole{
+    position:absolute; top:10px; left:10px; width:14px; height:14px; border-radius:50%;
+    background:var(--bg); border:1px dashed var(--line); z-index:2;
+  }
+  .tag-photo{
+    width:100%; aspect-ratio:1/1; border-radius:9px; background:var(--surface-2);
+    overflow:hidden; display:flex; align-items:center; justify-content:center;
+    margin-bottom:10px; position:relative;
+  }
+  .tag-photo img{ width:100%; height:100%; object-fit:contain; }
+  .tag-photo .ph-icon{ font-size:30px; opacity:.35; }
+  .tag-name{ font-weight:600; font-size:14px; margin-bottom:3px; }
+  .tag-meta{ font-size:11px; color:var(--ink-muted); }
+  .tag-badge{
+    position:absolute; top:8px; right:8px; background:var(--sage-soft); color:var(--sage);
+    font-size:10.5px; font-weight:700; padding:3px 7px; border-radius:6px; z-index:2;
+  }
+  .collage{ display:grid; grid-template-columns:1fr 1fr; gap:3px; }
+  .collage img{ width:100%; height:100%; object-fit:contain; }
+  .collage.single{ grid-template-columns:1fr; }
+
+  .empty-state{
+    border:1px dashed var(--line); border-radius:16px; padding:48px 24px; text-align:center;
+    color:var(--ink-muted); background:var(--surface);
+  }
+  .empty-state h3{ color:var(--ink); font-size:18px; margin-bottom:8px; }
+  .empty-state p{ font-size:13.5px; margin:0 0 16px; }
+
+  /* ---------- Today view ---------- */
+  .today-card{
+    background:var(--surface); border-radius:20px; border:1px solid var(--line);
+    padding:20px 22px; max-width:640px;
+  }
+  .today-date{ font-size:12px; color:var(--ink-muted); margin-bottom:2px; }
+  .today-actions{ display:flex; gap:10px; margin-top:12px; }
+  .worn-banner{
+    background:var(--sage-soft); color:var(--sage); border-radius:12px; padding:10px 14px;
+    font-weight:600; font-size:13.5px; margin-bottom:12px;
+  }
+  /* Overlapping "flat lay" stage — pieces are absolutely positioned so they
+     genuinely overlap like worn garments, on one shared background. Works best
+     with background-removed photos, which keep real transparency. */
+  .outfit-stage{ position:relative; width:100%; max-width:280px; height:300px; margin:8px auto 6px; }
+  .stage-item{ position:absolute; }
+  .stage-item img{ width:100%; height:100%; object-fit:contain; display:block; }
+  .stage-item .ph-icon{ display:flex; align-items:center; justify-content:center; width:100%; height:100%; font-size:26px; opacity:.3; }
+  .outfit-caption{ font-size:11.5px; color:var(--ink-muted); text-align:center; line-height:1.5; margin-bottom:4px; }
+
+  /* ---------- Stats ---------- */
+  .stat-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:28px; }
+  .stat-box{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:18px; }
+  .stat-box .num{ font-family:'Fraunces',serif; font-size:30px; color:var(--rust); }
+  .stat-box .label{ font-size:12px; color:var(--ink-muted); font-weight:600; margin-top:2px; }
+  .bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:9px; }
+  .bar-label{ width:90px; font-size:12.5px; color:var(--ink-muted); flex-shrink:0; }
+  .bar-track{ flex:1; height:9px; background:var(--surface-2); border-radius:6px; overflow:hidden; }
+  .bar-fill{ height:100%; background:var(--rust); border-radius:6px; }
+  .bar-val{ font-size:12px; width:26px; text-align:right; color:var(--ink-muted); }
+  .stat-list-row{ display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .stat-list-row:last-child{ border-bottom:none; }
+  .stat-list-row .tag-photo{ width:40px; height:40px; margin:0; flex-shrink:0; }
+  .stat-list-name{ font-weight:600; font-size:13.5px; }
+  .stat-list-sub{ font-size:11.5px; color:var(--ink-muted); }
+
+  /* ---------- Modal ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(51,39,28,0.45); display:flex; align-items:flex-start;
+    justify-content:center; padding:30px 16px; overflow-y:auto; z-index:100;
+  }
+  .modal{
+    background:var(--surface); border-radius:18px; padding:26px; width:100%; max-width:460px;
+    margin:auto;
+  }
+  .modal h3{ font-size:20px; margin-bottom:16px; }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:12.5px; font-weight:700; color:var(--ink-muted); margin-bottom:6px; }
+  .field input, .field select{ width:100%; }
+  .season-chips, .cat-chips{ display:flex; gap:7px; flex-wrap:wrap; }
+  .photo-upload{
+    border:1px dashed var(--line); border-radius:12px; height:150px; display:flex;
+    align-items:center; justify-content:center; flex-direction:column; gap:6px; cursor:pointer;
+    background:var(--surface-2); overflow:hidden; position:relative; margin-bottom:14px;
+  }
+  .photo-upload img{ width:100%; height:100%; object-fit:contain; position:absolute; }
+  .photo-upload .hint{ font-size:12px; color:var(--ink-muted); text-align:center; padding:0 20px;}
+  .modal-actions{ display:flex; justify-content:space-between; align-items:center; margin-top:18px; gap:10px; }
+  .item-pick-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; max-height:220px; overflow-y:auto; margin-bottom:6px; }
+  .pick-tile{ position:relative; border-radius:9px; overflow:hidden; aspect-ratio:1/1; border:2px solid transparent; background:var(--surface-2); cursor:pointer; }
+  .pick-tile img{ width:100%; height:100%; object-fit:contain; }
+  .pick-tile.selected{ border-color:var(--rust); }
+  .pick-tile .check{ position:absolute; top:4px; right:4px; width:18px; height:18px; border-radius:50%; background:var(--rust); color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; }
+  .pick-cat-label{ font-size:11px; font-weight:700; color:var(--ink-muted); margin:12px 0 6px; text-transform:uppercase; letter-spacing:.04em; }
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--bg);
+    padding:12px 20px; border-radius:10px; font-size:13.5px; font-weight:600; z-index:200; box-shadow:var(--shadow);
+  }
+
+  /* ---------- Outfit builder (cart-style) ---------- */
+  .builder-overlay{ position:fixed; inset:0; background:var(--bg); z-index:150; display:flex; flex-direction:column; }
+  .builder-header{ display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--line); background:var(--surface); flex-shrink:0; }
+  .builder-body{ flex:1; display:flex; overflow:hidden; }
+  .builder-main{ flex:1; overflow-y:auto; padding:18px 22px; }
+  .builder-filterbar{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; align-items:center; }
+  .builder-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px; margin-top:8px; }
+  .builder-tile{ position:relative; border-radius:10px; overflow:hidden; aspect-ratio:1/1; border:2px solid transparent; background:var(--surface-2); cursor:pointer; }
+  .builder-tile img{ width:100%; height:100%; object-fit:contain; }
+  .builder-tile.selected{ border-color:var(--rust); }
+  .builder-tile .check{ position:absolute; top:5px; right:5px; width:20px; height:20px; border-radius:50%; background:var(--rust); color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; }
+  .builder-tile .laundry-flag{ position:absolute; top:5px; left:5px; background:var(--danger); color:#fff; font-size:9px; font-weight:700; padding:2px 5px; border-radius:5px; letter-spacing:.03em; }
+  .builder-cart{ width:300px; flex-shrink:0; background:var(--surface); border-left:1px solid var(--line); padding:18px; overflow-y:auto; display:flex; flex-direction:column; }
+  .cart-items{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
+  .cart-item{ position:relative; width:56px; height:56px; border-radius:8px; overflow:hidden; background:var(--surface-2); }
+  .cart-item img{ width:100%; height:100%; object-fit:contain; }
+  .cart-item .remove{ position:absolute; top:-5px; right:-5px; width:18px; height:18px; border-radius:50%; background:var(--danger); color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; border:2px solid var(--surface); cursor:pointer; }
+  .score-badge{ background:var(--sage-soft); color:var(--sage); border-radius:10px; padding:10px 12px; font-size:12.5px; font-weight:600; margin-bottom:14px; line-height:1.4; }
+  .score-badge .num{ font-family:'Fraunces',serif; font-size:20px; color:var(--rust); }
+  .cart-actions{ display:flex; flex-direction:column; gap:8px; margin-top:auto; padding-top:8px; }
+  @media (max-width:820px){
+    .builder-body{ flex-direction:column; }
+    .builder-cart{ width:100%; border-left:none; border-top:1px solid var(--line); position:fixed; bottom:0; left:0; right:0; max-height:48vh; padding:14px 16px calc(14px + env(safe-area-inset-bottom)); }
+    .builder-main{ padding-bottom:220px; }
+  }
+
+  /* ---------- Color swatch picker ---------- */
+  .color-swatch-grid{ display:flex; flex-wrap:wrap; gap:9px; }
+  .color-swatch{
+    width:32px; height:32px; border-radius:50%; cursor:pointer; box-shadow:0 0 0 1px var(--line);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; position:relative;
+  }
+  .color-swatch.selected{ box-shadow:0 0 0 2px var(--surface), 0 0 0 4px var(--rust); }
+  .color-swatch.selected::after{ content:'✓'; font-size:13px; color:#fff; text-shadow:0 0 2px rgba(0,0,0,.6); }
+  .custom-swatch{ background:linear-gradient(135deg,#e33,#f90,#ec3,#3a7,#39c,#96c); font-size:15px; }
+  .color-name-label{ font-size:12.5px; color:var(--ink-muted); margin-top:8px; }
+  .color-dot{ display:inline-block; width:10px; height:10px; border-radius:50%; box-shadow:0 0 0 1px var(--line); margin-right:4px; vertical-align:-1px; }
+
+  /* ---------- Photo upload states ---------- */
+  .bg-remove-toggle{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-muted); margin-bottom:12px; }
+  .photo-processing{ display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--ink-muted); font-size:12.5px; }
+  .spinner{ width:22px; height:22px; border-radius:50%; border:2.5px solid var(--line); border-top-color:var(--rust); animation:spin 0.8s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .photo-source-buttons{ display:flex; gap:8px; margin-bottom:10px; }
+  .photo-source-buttons .btn{ flex:1; justify-content:center; }
+
+  /* ---------- In-app camera capture ---------- */
+  .camera-overlay{ position:fixed; inset:0; background:#000; z-index:250; display:flex; flex-direction:column; }
+  .camera-video-wrap{ position:relative; flex:1; overflow:hidden; background:#000; }
+  .camera-video-wrap video{ width:100%; height:100%; object-fit:cover; display:block; }
+  .camera-guide{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+  .camera-guide svg{ width:62%; max-width:320px; opacity:0.85; filter:drop-shadow(0 0 3px rgba(0,0,0,.6)); }
+  .camera-hint{
+    position:absolute; top:16px; left:0; right:0; text-align:center; color:#fff; font-size:13px;
+    font-weight:600; text-shadow:0 1px 3px rgba(0,0,0,.6); padding:0 20px;
+  }
+  .camera-controls{
+    background:#000; display:flex; align-items:center; justify-content:space-between;
+    padding:18px 26px calc(18px + env(safe-area-inset-bottom));
+  }
+  .camera-close{ background:none; border:none; color:#fff; font-size:15px; font-weight:600; cursor:pointer; }
+  .camera-shutter{
+    width:64px; height:64px; border-radius:50%; background:#fff; border:4px solid rgba(255,255,255,.35);
+    cursor:pointer; flex-shrink:0;
+  }
+  .camera-shutter:active{ background:var(--rust-soft); }
+  .camera-controls-spacer{ width:60px; }
+
+  /* ---------- Bulk add review ---------- */
+  .bulk-review-row{ display:flex; gap:14px; align-items:flex-start; padding-bottom:16px; border-bottom:1px dashed var(--line); }
+  .bulk-review-photo{ width:88px; height:88px; flex-shrink:0; border-radius:12px; background:var(--surface-2); overflow:hidden; display:flex; align-items:center; justify-content:center; }
+  .bulk-review-photo img{ width:100%; height:100%; object-fit:contain; }
+  .bulk-color-swatch{ width:24px; height:24px; border-radius:50%; box-shadow:0 0 0 1px var(--line); cursor:pointer; flex-shrink:0; }
+  .bulk-mini-picker{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; padding:10px; background:var(--surface-2); border-radius:10px; }
+  .bulk-mini-picker .color-swatch{ width:24px; height:24px; }
+
+  /* ---------- Mobile ---------- */
+  .bottom-nav{ display:none; }
+  @media (max-width:820px){
+    .sidebar{ display:none; }
+    #app{ flex-direction:column; }
+    main{ padding:20px 16px 90px; max-width:100%; }
+    .topbar-mobile{
+      display:flex; align-items:center; justify-content:space-between; padding:6px 2px 18px;
+    }
+    .topbar-mobile .brand{ padding:0; }
+    .bottom-nav{
+      display:flex; position:fixed; bottom:0; left:0; right:0; background:var(--surface);
+      border-top:1px solid var(--line); z-index:50; padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+    }
+    .bottom-nav .nav-item{ flex:1; flex-direction:column; align-items:center; gap:3px; font-size:10.5px; padding:6px 2px; border-radius:10px; }
+    .bottom-nav .nav-item.active{ background:none; color:var(--rust); }
+    .grid{ grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast-root"></div>
+
+<script src="config.js"></script>
+<script type="module">
+/* ============== FIREBASE SETUP ============== */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const FIREBASE_CONFIG = window.HANG_FIREBASE_CONFIG || null;
+const CONFIG_MISSING = !FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey.includes('PASTE');
+let db = null, auth = null;
+if(!CONFIG_MISSING){
+  const fbApp = initializeApp(FIREBASE_CONFIG);
+  db = getFirestore(fbApp);
+  auth = getAuth(fbApp);
+}
+function friendlyAuthError(e){
+  const code = e && e.code || '';
+  if(code.includes('email-already-in-use')) return 'An account with that email already exists — try signing in instead.';
+  if(code.includes('invalid-email')) return 'That email address doesn\'t look right.';
+  if(code.includes('weak-password')) return 'Password should be at least 6 characters.';
+  if(code.includes('wrong-password') || code.includes('invalid-credential')) return 'Incorrect email or password.';
+  if(code.includes('user-not-found')) return 'No account found with that email — try creating one instead.';
+  if(code.includes('too-many-requests')) return 'Too many attempts — please wait a bit and try again.';
+  return 'Something went wrong. Please try again.';
+}
+async function doSignUp(email, password){
+  try{ state.authError = null; await createUserWithEmailAndPassword(auth, email, password); }
+  catch(e){ state.authError = friendlyAuthError(e); render(); }
+}
+async function doSignIn(email, password){
+  try{ state.authError = null; await signInWithEmailAndPassword(auth, email, password); }
+  catch(e){ state.authError = friendlyAuthError(e); render(); }
+}
+async function doLogout(){ try{ await signOut(auth); }catch(e){ console.error(e); } }
+
+/* ============== ICONS ============== */
+const ICONS = {
+  closet: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 4v1H5V7l7-4z"/><path d="M5 8v13M19 8v13M12 8v13"/><path d="M3 21h18"/></svg>`,
+  outfits: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7l4-3 4 3-1 3H5l-1-3z"/><path d="M9 7v13M4 10l1 10M14 10l-1 10"/><path d="M14 7l4-3 4 3-1 3h-6l-1-3z"/></svg>`,
+  today: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.2 4.2l2 2M17.8 17.8l2 2M2 12h3M19 12h3M4.2 19.8l2-2M17.8 6.2l2-2"/></svg>`,
+  stats: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M12 20V4M20 20v-7"/><path d="M2 20h20"/></svg>`,
+  plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>`,
+};
+
+/* ============== STATE ============== */
+const state = { view:'closet', items:[], outfits:[], loaded:false,
+  filters:{cat:'all', q:'', sort:'recent', laundry:false},
+  todaySuggestion:null, todayWornLog:null, todayOccasion:'all', todayIncludeLaundry:false,
+  user:null, authMode:'signin', authError:null, authBusy:false };
+
+const CATEGORIES = ['top','bottom','dress','outerwear','shoes','accessory'];
+const CAT_LABEL = {top:'Top',bottom:'Bottom',dress:'Dress',outerwear:'Outerwear',shoes:'Shoes',accessory:'Accessory'};
+const SEASONS = ['spring','summer','fall','winter','all-season'];
+const VIBES = ['casual','work','date','formal','workout','rainy'];
+const VIBE_LABEL = {casual:'Casual',work:'Work',date:'Date Night',formal:'Formal',workout:'Workout',rainy:'Rainy Day'};
+// Smart default "wears before wash" per category. 0 = not auto-tracked (manual toggle only).
+const LAUNDRY_DEFAULT = {top:1, bottom:3, dress:1, outerwear:8, shoes:0, accessory:0};
+
+// Preset color swatches shown in the item modal (no typing required)
+const COLOR_PRESETS = [
+  {name:'Black', hex:'#232019'}, {name:'White', hex:'#f8f6f0'}, {name:'Grey', hex:'#9a948a'},
+  {name:'Charcoal', hex:'#3a3632'}, {name:'Navy', hex:'#233047'}, {name:'Denim Blue', hex:'#5b7c99'},
+  {name:'Beige', hex:'#e6d8bd'}, {name:'Tan', hex:'#c9a06a'}, {name:'Brown', hex:'#6b4a33'},
+  {name:'Cream', hex:'#f2ead8'}, {name:'Red', hex:'#b23a3a'}, {name:'Rust', hex:'#b5542d'},
+  {name:'Orange', hex:'#d97b3f'}, {name:'Mustard', hex:'#cf9d34'}, {name:'Olive', hex:'#767a4d'},
+  {name:'Green', hex:'#4f7a52'}, {name:'Teal', hex:'#3f8079'}, {name:'Blue', hex:'#3d6ea5'},
+  {name:'Purple', hex:'#6d5b8a'}, {name:'Pink', hex:'#d98fa3'}, {name:'Burgundy', hex:'#6e2b3a'}
+];
+function hexToHSL(hex){
+  hex = (hex||'').replace('#','');
+  if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+  if(hex.length!==6) return {h:0,s:0,l:50};
+  const r=parseInt(hex.substr(0,2),16)/255, g=parseInt(hex.substr(2,2),16)/255, b=parseInt(hex.substr(4,2),16)/255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b);
+  let h=0, l=(max+min)/2, s=0;
+  const d=max-min;
+  if(d!==0){
+    s = d/(1-Math.abs(2*l-1));
+    if(max===r) h=((g-b)/d)%6; else if(max===g) h=(b-r)/d+2; else h=(r-g)/d+4;
+    h*=60; if(h<0) h+=360;
+  }
+  return {h, s:s*100, l:l*100};
+}
+function familyFromHex(hex){
+  const {h,s,l} = hexToHSL(hex);
+  if(s<15 || l>92 || l<10) return 'neutral';
+  if(h<20 || h>=330) return 'warm';
+  if(h<70) return 'warm';
+  if(h<260) return 'cool';
+  if(h<330) return 'bright';
+  return 'neutral';
+}
+function hexToRgb(hex){
+  hex = (hex||'').replace('#','');
+  if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+  if(hex.length!==6) return {r:200,g:200,b:200};
+  return { r:parseInt(hex.substr(0,2),16), g:parseInt(hex.substr(2,2),16), b:parseInt(hex.substr(4,2),16) };
+}
+function rgbToHex(r,g,b){
+  return '#' + [r,g,b].map(v=> Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+}
+// Finds the closest preset swatch to a detected/custom hex, by simple RGB distance.
+function nearestPreset(hex){
+  const t = hexToRgb(hex);
+  let best = COLOR_PRESETS[0], bestDist = Infinity;
+  for(const p of COLOR_PRESETS){
+    const c = hexToRgb(p.hex);
+    const d = (c.r-t.r)**2 + (c.g-t.g)**2 + (c.b-t.b)**2;
+    if(d<bestDist){ bestDist=d; best=p; }
+  }
+  return best;
+}
+// Samples the average color of a photo's actual (non-transparent) pixels to guess
+// its dominant color — works best on background-removed photos, since the
+// transparent parts are skipped rather than dragging the average toward a background.
+async function detectDominantColorHex(dataUrl){
+  try{
+    const img = await loadImageEl(dataUrl);
+    const size = 60;
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d', { willReadFrequently:true });
+    ctx.drawImage(img, 0, 0, size, size);
+    const { data } = ctx.getImageData(0, 0, size, size);
+    let r=0,g=0,b=0,count=0;
+    for(let i=0; i<data.length; i+=4){
+      const alpha = data[i+3];
+      if(alpha < 200) continue; // skip transparent/near-transparent background pixels
+      r += data[i]; g += data[i+1]; b += data[i+2]; count++;
+    }
+    if(count===0) return null;
+    return rgbToHex(r/count, g/count, b/count);
+  }catch(e){ console.error('color detection failed', e); return null; }
+}
+const NEUTRAL_WORDS = ['black','white','grey','gray','beige','tan','cream','ivory','navy','brown','denim','charcoal','khaki','stone','taupe','camel'];
+const WARM_WORDS = ['red','orange','yellow','rust','terracotta','coral','burgundy','maroon','mustard','peach','brick','gold','wine','rose'];
+const COOL_WORDS = ['blue','green','teal','purple','lavender','mint','turquoise','indigo','olive','sage','emerald','violet','cobalt'];
+const BRIGHT_WORDS = ['pink','magenta','fuchsia','multicolor','print','patterned','floral','neon'];
+function colorFamily(item){
+  if(!item) return 'neutral';
+  const name = (item.color||'').toLowerCase();
+  // Recognized "wardrobe neutral" names (navy, denim, olive-drab tones, etc.) pair with
+  // everything by styling convention, regardless of their raw hue.
+  if(name && NEUTRAL_WORDS.some(w=>name.includes(w))) return 'neutral';
+  // Otherwise, prefer the actual selected hex — more accurate than guessing from a label.
+  if(item.colorHex) return familyFromHex(item.colorHex);
+  if(name){
+    if(WARM_WORDS.some(w=>name.includes(w))) return 'warm';
+    if(COOL_WORDS.some(w=>name.includes(w))) return 'cool';
+    if(BRIGHT_WORDS.some(w=>name.includes(w))) return 'bright';
+  }
+  return 'neutral'; // unrecognized/blank color treated as a wildcard, not penalized
+}
+function pairScore(famA, famB){
+  // Two neutrals, or one neutral + anything: safe and easy, but not as
+  // deliberately "styled" as two colors from the same family.
+  if(famA==='neutral' && famB==='neutral') return 1.5;
+  if(famA==='neutral' || famB==='neutral') return 1.5;
+  // Same non-neutral family (two warms, or two cools): a genuine color match.
+  if(famA===famB) return 2;
+  // Warm vs. cool with no neutral to bridge them: the classic clash.
+  if((famA==='warm'&&famB==='cool')||(famA==='cool'&&famB==='warm')) return -2;
+  // A bright/bold color as a single accent works well; two brights together is busy.
+  if(famA==='bright' && famB==='bright') return -1;
+  if(famA==='bright' || famB==='bright') return 0.5;
+  return 0;
+}
+function comboColorScore(items){
+  const fams = items.map(i=>colorFamily(i));
+  let total=0, count=0;
+  for(let i=0;i<fams.length;i++){
+    for(let j=i+1;j<fams.length;j++){ total += pairScore(fams[i],fams[j]); count++; }
+  }
+  if(count===0) return 1.5;
+  return total/count;
+}
+function occasionMatch(item, occasion){
+  if(!occasion) return true;
+  if(!item.vibes || item.vibes.length===0) return true;
+  return item.vibes.includes(occasion);
+}
+function comboScoreOutOf10(items, occasion){
+  if(!items || items.length===0) return 0;
+  const colorAvg = comboColorScore(items); // ranges roughly -2 (clash) to 2 (great match)
+  const colorNorm = Math.max(0, Math.min(10, (colorAvg+2)/4*10));
+  const occFits = items.filter(i=>occasionMatch(i,occasion)).length / items.length;
+  const occScore = occFits*10;
+  const final = Math.round(colorNorm*0.7 + occScore*0.3);
+  return Math.max(1, Math.min(10, final));
+}
+function comboReason(items, occasion){
+  if(!items || items.length===0) return 'Add items to see a compatibility score';
+  const colorAvg = comboColorScore(items);
+  let reason;
+  if(colorAvg>=1.75) reason='Strong color match';
+  else if(colorAvg>=1.0) reason='Safe, easy pairing';
+  else if(colorAvg>=0) reason='Could go either way';
+  else reason='Colors may clash a bit';
+  if(occasion){
+    const allFit = items.every(i=>occasionMatch(i,occasion));
+    reason += allFit ? `, fits ${VIBE_LABEL[occasion]}` : `, not all pieces tagged for ${VIBE_LABEL[occasion]}`;
+  }
+  return reason;
+}
+/* ---- Laundry helpers ---- */
+function applyWear(item, dateStr){
+  item.wearCount = (item.wearCount||0)+1;
+  item.lastWorn = dateStr;
+  item.wearHistory = [...(item.wearHistory||[]), dateStr].slice(-20);
+  item.wearsSinceWash = (item.wearsSinceWash||0)+1;
+  const threshold = (item.wearsBeforeWash!=null ? item.wearsBeforeWash : LAUNDRY_DEFAULT[item.category]) || 0;
+  if(threshold>0 && item.wearsSinceWash>=threshold){ item.laundryStatus = 'dirty'; }
+}
+function markWashed(item){ item.wearsSinceWash = 0; item.laundryStatus = 'clean'; }
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function fmtDate(d){ if(!d) return '—'; const dt=new Date(d); return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
+
+/* ============== STORAGE (Firebase Firestore, per-user) ============== */
+async function loadAll(){
+  if(CONFIG_MISSING || !state.user){ state.loaded = true; render(); return; }
+  try{
+    const uid = state.user.uid;
+    const itemsSnap = await getDocs(collection(db, 'users', uid, 'items'));
+    const items = itemsSnap.docs.map(d=>d.data());
+    const outfitsSnap = await getDocs(collection(db, 'users', uid, 'outfits'));
+    const outfits = outfitsSnap.docs.map(d=>d.data());
+    state.items = items; state.outfits = outfits; state.loaded = true;
+  } catch(e){
+    console.error('load error', e);
+    state.loaded = true;
+    toast("Could not load your closet — check your Firebase setup");
+  }
+  render();
+}
+async function persistItem(item){
+  if(!state.user) return;
+  try{ await setDoc(doc(db, 'users', state.user.uid, 'items', item.id), item); }
+  catch(e){ console.error('save item failed', e); toast("Could not save — check your connection or Firebase setup"); }
+}
+async function persistOutfit(o){
+  if(!state.user) return;
+  try{ await setDoc(doc(db, 'users', state.user.uid, 'outfits', o.id), o); }
+  catch(e){ console.error('save outfit failed', e); toast("Could not save — check your connection or Firebase setup"); }
+}
+async function deleteItemStorage(id){
+  if(!state.user) return;
+  try{ await deleteDoc(doc(db, 'users', state.user.uid, 'items', id)); }catch(e){ console.error(e); }
+}
+async function deleteOutfitStorage(id){
+  if(!state.user) return;
+  try{ await deleteDoc(doc(db, 'users', state.user.uid, 'outfits', id)); }catch(e){ console.error(e); }
+}
+
+/* ============== TOAST ============== */
+function toast(msg){
+  const root = document.getElementById('toast-root');
+  root.innerHTML = `<div class="toast">${msg}</div>`;
+  setTimeout(()=>{ root.innerHTML=''; }, 2200);
+}
+
+/* ============== IMAGE RESIZE ============== */
+function fileToResizedDataURL(file, maxDim=700, quality=0.72){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let w=img.width, h=img.height;
+        if(w>h && w>maxDim){ h = Math.round(h*maxDim/w); w=maxDim; }
+        else if(h>=w && h>maxDim){ w = Math.round(w*maxDim/h); h=maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function loadImageEl(src){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+    img.onload = ()=> resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+function drawResizedCanvas(img, maxDim){
+  let w=img.width, h=img.height;
+  if(w>h && w>maxDim){ h = Math.round(h*maxDim/w); w=maxDim; }
+  else if(h>=w && h>maxDim){ w = Math.round(w*maxDim/h); h=maxDim; }
+  const canvas = document.createElement('canvas');
+  canvas.width=w; canvas.height=h;
+  canvas.getContext('2d').drawImage(img,0,0,w,h);
+  return canvas;
+}
+async function resizeTransparentPng(blob, maxDim){
+  const url = URL.createObjectURL(blob);
+  try{
+    const img = await loadImageEl(url);
+    const canvas = drawResizedCanvas(img, maxDim); // canvas starts transparent; alpha is preserved
+    return canvas.toDataURL('image/png');
+  } finally { URL.revokeObjectURL(url); }
+}
+// Removes the background from a photo (in-browser, free, no API key) and keeps
+// real transparency (rather than flattening onto a solid color) so items can
+// visually overlap like actual garments in the Today "flat lay" view, and so
+// each item blends cleanly into whatever card/frame background it's shown on.
+// Runs the model in a Web Worker (proxyToWorker) so it doesn't lock up the page,
+// and falls back to a plain resized photo if the model can't load (e.g. offline).
+async function fileToProcessedDataURL(file, removeBg){
+  if(!removeBg) return fileToResizedDataURL(file);
+  try{
+    const rawDataUrl = await new Promise((res,rej)=>{
+      const r = new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file);
+    });
+    const img = await loadImageEl(rawDataUrl);
+    const preCanvas = drawResizedCanvas(img, 800);
+    const preDataUrl = preCanvas.toDataURL('image/png');
+    // Let the browser paint the "removing background…" spinner before the heavy work starts.
+    await new Promise(r=> requestAnimationFrame(()=> requestAnimationFrame(r)));
+    const { removeBackground } = await import('https://esm.sh/@imgly/background-removal');
+    const resultBlob = await removeBackground(preDataUrl, { proxyToWorker: true });
+    return await resizeTransparentPng(resultBlob, 650);
+  }catch(err){
+    console.error('Background removal failed, using original photo instead:', err);
+    toast("Couldn't remove background — used your original photo");
+    return fileToResizedDataURL(file);
+  }
+}
+
+/* ============== IN-APP CAMERA CAPTURE ============== */
+// Simple alignment-guide silhouettes shown over the live camera feed, so
+// photos come out reasonably consistent (same rough framing) across items.
+function guideSvgForCategory(category){
+  const stroke = 'rgba(255,255,255,0.9)';
+  if(category==='bottom'){
+    return `<svg viewBox="0 0 200 260" fill="none" stroke="${stroke}" stroke-width="4" stroke-linejoin="round">
+      <path d="M55 10 H145 L150 60 L128 250 H104 L100 110 L96 250 H72 L50 60 Z"/>
+    </svg>`;
+  }
+  if(category==='dress'){
+    return `<svg viewBox="0 0 200 260" fill="none" stroke="${stroke}" stroke-width="4" stroke-linejoin="round">
+      <path d="M80 8 L70 30 L40 55 L55 90 L75 75 L60 250 H140 L125 75 L145 90 L160 55 L130 30 L120 8 Q100 22 80 8 Z"/>
+    </svg>`;
+  }
+  if(category==='shoes'){
+    return `<svg viewBox="0 0 220 140" fill="none" stroke="${stroke}" stroke-width="4" stroke-linejoin="round">
+      <path d="M15 110 Q15 90 35 85 L70 78 Q95 40 130 35 Q160 32 185 55 Q205 72 205 95 Q205 112 190 115 L25 118 Q15 118 15 110 Z"/>
+    </svg>`;
+  }
+  if(category==='accessory'){
+    return `<svg viewBox="0 0 200 200" fill="none" stroke="${stroke}" stroke-width="4">
+      <circle cx="100" cy="100" r="80" stroke-dasharray="10 8"/>
+    </svg>`;
+  }
+  // top & outerwear share a shirt/jacket silhouette
+  return `<svg viewBox="0 0 200 220" fill="none" stroke="${stroke}" stroke-width="4" stroke-linejoin="round">
+    <path d="M75 8 L100 20 L125 8 L165 35 L150 70 L128 58 L132 210 H68 L72 58 L50 70 L35 35 Z"/>
+  </svg>`;
+}
+function guideHintForCategory(category){
+  if(category==='bottom') return 'Lay your bottoms flat, waist at top';
+  if(category==='dress') return 'Lay your dress flat, facing up';
+  if(category==='shoes') return 'Center one shoe, side profile';
+  if(category==='accessory') return 'Center the item in the circle';
+  return 'Lay flat, facing up, sleeves out';
+}
+// Opens a full-screen camera view with a category-shaped alignment guide.
+// Calls onCapture(file) with a captured photo (as a File), or does nothing if cancelled.
+async function openCameraCapture(category, onCapture){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    toast("Camera isn't available in this browser — try uploading a photo instead.");
+    return;
+  }
+  let stream = null;
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+  }catch(err){
+    try{ stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); }
+    catch(err2){
+      console.error('Camera access failed', err2);
+      toast("Couldn't access your camera — check permissions, or upload a photo instead.");
+      return;
+    }
+  }
+  const overlay = document.createElement('div');
+  overlay.className = 'camera-overlay';
+  overlay.innerHTML = `
+    <div class="camera-video-wrap">
+      <video id="camera-video" autoplay playsinline muted></video>
+      <div class="camera-hint">${guideHintForCategory(category)}</div>
+      <div class="camera-guide">${guideSvgForCategory(category)}</div>
+    </div>
+    <div class="camera-controls">
+      <button class="camera-close" id="camera-close-btn">Cancel</button>
+      <button class="camera-shutter" id="camera-shutter-btn" aria-label="Take photo"></button>
+      <div class="camera-controls-spacer"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const video = overlay.querySelector('#camera-video');
+  video.srcObject = stream;
+  function stopAndClose(){
+    stream.getTracks().forEach(t=> t.stop());
+    overlay.remove();
+  }
+  overlay.querySelector('#camera-close-btn').addEventListener('click', stopAndClose);
+  overlay.querySelector('#camera-shutter-btn').addEventListener('click', ()=>{
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1080;
+    canvas.height = video.videoHeight || 1440;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob)=>{
+      stopAndClose();
+      if(!blob){ toast('Could not capture that photo — try again.'); return; }
+      const file = new File([blob], 'capture.jpg', { type:'image/jpeg' });
+      onCapture(file);
+    }, 'image/jpeg', 0.9);
+  });
+}
+
+/* ============== RENDER SHELL ============== */
+function render(){
+  const app = document.getElementById('app');
+  if(CONFIG_MISSING){
+    app.innerHTML = `
+      <main style="max-width:640px; margin:0 auto; padding:60px 24px;">
+        <div class="brand" style="padding:0 0 20px;"><span class="mark">🪡</span><h1>Hang</h1></div>
+        <div class="empty-state" style="text-align:left;">
+          <h3>One quick setup step</h3>
+          <p>This copy of Hang isn't connected to a Firebase project yet, so it has nowhere to save your closet.</p>
+          <p>Open <span class="mono">config.js</span> (in this same folder) and paste in your Firebase project's config values. Full steps are in <span class="mono">README.md</span>.</p>
+          <p class="view-sub">Once config.js is filled in, just reload this page.</p>
+        </div>
+      </main>`;
+    return;
+  }
+  if(!state.user){ renderAuthScreen(app); return; }
+  if(!state.loaded){
+    app.innerHTML = `<main style="max-width:640px; margin:0 auto; padding:60px 24px;"><div class="empty-state"><h3>Loading your closet…</h3></div></main>`;
+    return;
+  }
+  app.innerHTML = `
+    <div class="sidebar">
+      <div class="brand"><span class="mark">🪡</span><h1>Hang</h1></div>
+      ${navItems()}
+      <div class="sidebar-foot">
+        Signed in as ${escapeHtml(state.user.email||'')}<br>
+        <button class="btn-text" id="logout-btn" style="padding:6px 0;">Log out</button>
+      </div>
+    </div>
+    <main>
+      <div class="topbar-mobile">
+        <div class="brand"><span class="mark">🪡</span><h1 style="font-size:19px">Hang</h1></div>
+        <button class="btn-text" id="logout-btn-mobile">Log out</button>
+      </div>
+      <div id="view-root"></div>
+    </main>
+    <div class="bottom-nav">${navItems(true)}</div>
+  `;
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    el.addEventListener('click', ()=>{ state.view = el.dataset.view; render(); });
+  });
+  const lb = document.getElementById('logout-btn'); if(lb) lb.addEventListener('click', doLogout);
+  const lbm = document.getElementById('logout-btn-mobile'); if(lbm) lbm.addEventListener('click', doLogout);
+  renderView();
+}
+function renderAuthScreen(app){
+  const mode = state.authMode;
+  app.innerHTML = `
+    <main style="max-width:420px; margin:0 auto; padding:70px 24px; width:100%;">
+      <div class="brand" style="padding:0 0 26px; justify-content:center;"><span class="mark">🪡</span><h1>Hang</h1></div>
+      <div class="today-card" style="max-width:100%;">
+        <h3 style="margin-bottom:16px;">${mode==='signup' ? 'Create your account' : 'Welcome back'}</h3>
+        ${state.authError ? `<div class="worn-banner" style="background:var(--rust-soft); color:var(--danger);">${escapeHtml(state.authError)}</div>` : ''}
+        <div class="field"><label>Email</label><input type="email" id="auth-email" placeholder="you@example.com"></div>
+        <div class="field"><label>Password</label><input type="password" id="auth-password" placeholder="${mode==='signup'?'At least 6 characters':'Your password'}"></div>
+        <button class="btn btn-primary" id="auth-submit" style="width:100%; justify-content:center; margin-top:6px;">
+          ${mode==='signup' ? 'Create account' : 'Sign in'}
+        </button>
+        <div class="view-sub" style="text-align:center; margin-top:16px;">
+          ${mode==='signup' ? 'Already have an account?' : "Don't have an account yet?"}
+          <a href="#" id="auth-switch" style="color:var(--rust); font-weight:600; text-decoration:none;">
+            ${mode==='signup' ? 'Sign in' : 'Create one'}
+          </a>
+        </div>
+      </div>
+    </main>`;
+  const emailInp = app.querySelector('#auth-email');
+  const passInp = app.querySelector('#auth-password');
+  app.querySelector('#auth-switch').addEventListener('click', (e)=>{
+    e.preventDefault();
+    state.authMode = mode==='signup' ? 'signin' : 'signup';
+    state.authError = null;
+    render();
+  });
+  async function submit(){
+    const email = emailInp.value.trim();
+    const password = passInp.value;
+    if(!email || !password){ state.authError = 'Enter both an email and a password.'; render(); return; }
+    if(mode==='signup') await doSignUp(email, password);
+    else await doSignIn(email, password);
+  }
+  app.querySelector('#auth-submit').addEventListener('click', submit);
+  [emailInp, passInp].forEach(el=> el.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); }));
+}
+function navItems(mobile){
+  return ['closet','outfits','today','stats'].map(v=>`
+    <button class="nav-item ${state.view===v?'active':''}" data-view="${v}">
+      ${ICONS[v]}<span>${v[0].toUpperCase()+v.slice(1)}</span>
+    </button>`).join('');
+}
+function renderView(){
+  const root = document.getElementById('view-root');
+  if(!state.loaded){ root.innerHTML = `<div class="empty-state"><h3>Loading your closet…</h3></div>`; return; }
+  if(state.view==='closet') return renderCloset(root);
+  if(state.view==='outfits') return renderOutfits(root);
+  if(state.view==='today') return renderToday(root);
+  if(state.view==='stats') return renderStats(root);
+}
+
+/* ============== CLOSET VIEW ============== */
+function renderCloset(root){
+  const f = state.filters;
+  let items = state.items.filter(i=>{
+    if(f.cat!=='all' && i.category!==f.cat) return false;
+    if(f.laundry && i.laundryStatus!=='dirty') return false;
+    if(f.q && !(i.name.toLowerCase().includes(f.q.toLowerCase()) || (i.color||'').toLowerCase().includes(f.q.toLowerCase()))) return false;
+    return true;
+  });
+  if(f.sort==='recent') items = items.slice().sort((a,b)=> b.createdAt - a.createdAt);
+  if(f.sort==='most') items = items.slice().sort((a,b)=> (b.wearCount||0)-(a.wearCount||0));
+  if(f.sort==='least') items = items.slice().sort((a,b)=> (a.wearCount||0)-(b.wearCount||0));
+  const dirtyCount = state.items.filter(i=>i.laundryStatus==='dirty').length;
+
+  root.innerHTML = `
+    <div class="view-header">
+      <div><h2>Closet</h2><div class="view-sub">${state.items.length} item${state.items.length===1?'':'s'} saved</div></div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-ghost" id="add-multiple-btn">📸 Add multiple</button>
+        <button class="btn btn-primary" id="add-item-btn">${ICONS.plus}Add item</button>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <div class="chip ${f.cat==='all'?'active':''}" data-cat="all">All</div>
+      ${CATEGORIES.map(c=>`<div class="chip ${f.cat===c?'active':''}" data-cat="${c}">${CAT_LABEL[c]}</div>`).join('')}
+      <div class="chip ${f.laundry?'active':''}" id="laundry-chip" style="${f.laundry?'':'border-color:var(--danger); color:var(--danger);'}">🧺 Needs wash${dirtyCount?' ('+dirtyCount+')':''}</div>
+      <input class="search-input" placeholder="Search name or color…" id="search-input" value="${f.q}">
+      <select id="sort-select">
+        <option value="recent" ${f.sort==='recent'?'selected':''}>Recently added</option>
+        <option value="most" ${f.sort==='most'?'selected':''}>Most worn</option>
+        <option value="least" ${f.sort==='least'?'selected':''}>Least worn</option>
+      </select>
+    </div>
+    ${ f.laundry && items.length>0 ? `<button class="btn btn-ghost" id="bulk-wash-btn" style="margin-bottom:16px;">🧼 Mark all ${items.length} as washed</button>` : '' }
+    ${ items.length===0 ? emptyClosetState(f.laundry) : `<div class="grid">${items.map(itemCard).join('')}</div>` }
+  `;
+  root.querySelectorAll('.chip[data-cat]').forEach(el=> el.addEventListener('click', ()=>{ f.cat = el.dataset.cat; renderView(); }));
+  root.querySelector('#laundry-chip').addEventListener('click', ()=>{ f.laundry = !f.laundry; renderView(); });
+  root.querySelector('#search-input').addEventListener('input', e=>{ f.q = e.target.value; renderView(); });
+  root.querySelector('#sort-select').addEventListener('change', e=>{ f.sort = e.target.value; renderView(); });
+  root.querySelector('#add-item-btn').addEventListener('click', ()=> openItemModal());
+  root.querySelector('#add-multiple-btn').addEventListener('click', ()=> openBulkAddModal());
+  root.querySelectorAll('.tag-card[data-item]').forEach(el=> el.addEventListener('click', ()=> openItemModal(el.dataset.item)));
+  const bulkBtn = root.querySelector('#bulk-wash-btn');
+  if(bulkBtn) bulkBtn.addEventListener('click', async ()=>{
+    for(const i of items){ markWashed(i); await persistItem(i); }
+    toast('Marked as washed ✓'); renderView();
+  });
+}
+function emptyClosetState(laundryMode){
+  if(laundryMode){
+    return `<div class="empty-state"><h3>Nothing needs washing</h3><p>Everything currently in your closet is clean.</p></div>`;
+  }
+  return `<div class="empty-state"><h3>Your closet is empty</h3>
+    <p>Add your first item — snap a photo of something in your wardrobe to get started.</p>
+    <button class="btn btn-primary" onclick="document.getElementById('add-item-btn').click()">${ICONS.plus} Add item</button>
+  </div>`;
+}
+function itemCard(item){
+  const dirty = item.laundryStatus==='dirty';
+  return `<div class="tag-card" data-item="${item.id}">
+    <div class="tag-hole"></div>
+    ${item.wearCount>0?`<div class="tag-badge">×${item.wearCount}</div>`:''}
+    <div class="tag-photo">${item.image?`<img src="${item.image}">`:`<span class="ph-icon">👕</span>`}</div>
+    <div class="tag-name">${escapeHtml(item.name)}</div>
+    <div class="tag-meta mono">${CAT_LABEL[item.category]||''} ${item.color?'· '+(item.colorHex?`<span class="color-dot" style="background:${item.colorHex}"></span>`:'')+escapeHtml(item.color):''}</div>
+    ${dirty?`<div class="tag-meta mono" style="color:var(--danger); font-weight:700; margin-top:2px;">NEEDS WASH</div>`:''}
+  </div>`;
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---- Item modal (add/edit) ---- */
+function openItemModal(itemId){
+  const existing = itemId ? state.items.find(i=>i.id===itemId) : null;
+  const draft = existing ? {...existing, vibes:[...(existing.vibes||[])]} : {
+    id:uid(), name:'', category:'top', color:'', colorHex:null, seasons:['all-season'], vibes:[], image:null,
+    wearCount:0, lastWorn:null, wearHistory:[], createdAt:Date.now(),
+    laundryStatus:'clean', wearsSinceWash:0, wearsBeforeWash: LAUNDRY_DEFAULT['top']
+  };
+  if(draft.wearsBeforeWash==null) draft.wearsBeforeWash = LAUNDRY_DEFAULT[draft.category] || 0;
+  if(!draft.laundryStatus) draft.laundryStatus = 'clean';
+  let removeBgOn = true;
+  const overlay = document.createElement('div');
+  overlay.className='overlay';
+  function laundryBtnLabel(){ return draft.laundryStatus==='dirty' ? '🧼 Mark as washed' : '🧺 Mark as needs wash'; }
+  function isPresetSelected(c){ return draft.color===c.name && draft.colorHex===c.hex; }
+  function colorSwatchesHtml(){
+    const isCustom = draft.color==='Custom' && draft.colorHex;
+    return `<div class="color-swatch-grid" id="color-swatch-grid">
+      ${COLOR_PRESETS.map(c=>`<div class="color-swatch ${isPresetSelected(c)?'selected':''}" data-name="${c.name}" data-hex="${c.hex}" style="background:${c.hex}" title="${c.name}"></div>`).join('')}
+      <div class="color-swatch custom-swatch ${isCustom?'selected':''}" id="custom-color-swatch" title="Custom color"
+        style="${isCustom?`background:${draft.colorHex}`:''}">${isCustom?'':'🎨'}</div>
+    </div>
+    <input type="color" id="custom-color-input" style="position:absolute; width:1px; height:1px; opacity:0; pointer-events:none;">
+    <div class="color-name-label" id="color-name-label">${draft.color? 'Selected: '+escapeHtml(draft.color) : 'Pick a color (optional, helps outfit matching)'}</div>`;
+  }
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>${existing?'Edit item':'Add item'}</h3>
+      <div class="photo-upload" id="photo-upload">
+        ${draft.image?`<img src="${draft.image}">`:''}
+        <span class="hint" ${draft.image?'style="display:none"':''}>📷 Tap to add a photo</span>
+      </div>
+      <div class="photo-source-buttons">
+        <button class="btn btn-ghost" id="take-photo-btn" type="button">📷 Take a photo</button>
+        <button class="btn btn-ghost" id="choose-photo-btn" type="button">🖼️ Choose from library</button>
+      </div>
+      <label class="bg-remove-toggle"><input type="checkbox" id="remove-bg-toggle" checked> ✂️ Remove background automatically</label>
+      <input type="file" accept="image/*" id="photo-input" style="display:none">
+      <div class="field"><label>Name</label><input type="text" id="f-name" placeholder="e.g. Blue denim jacket" value="${escapeHtml(draft.name)}"></div>
+      <div class="field"><label>Category</label>
+        <div class="cat-chips">${CATEGORIES.map(c=>`<div class="chip cat-opt ${draft.category===c?'active':''}" data-cat="${c}">${CAT_LABEL[c]}</div>`).join('')}</div>
+      </div>
+      <div class="field"><label>Color</label>${colorSwatchesHtml()}</div>
+      <div class="field"><label>Season</label>
+        <div class="season-chips">${SEASONS.map(s=>`<div class="chip season-opt ${draft.seasons.includes(s)?'active':''}" data-s="${s}">${s[0].toUpperCase()+s.slice(1)}</div>`).join('')}</div>
+      </div>
+      <div class="field"><label>Best for (occasions)</label>
+        <div class="season-chips">${VIBES.map(v=>`<div class="chip vibe-opt ${draft.vibes.includes(v)?'active':''}" data-v="${v}">${VIBE_LABEL[v]}</div>`).join('')}</div>
+        <div class="view-sub" style="margin-top:5px;">Leave blank if it fits any occasion.</div>
+      </div>
+      <div class="field"><label>Laundry</label>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+          <button class="btn btn-ghost" id="laundry-toggle-btn" type="button">${laundryBtnLabel()}</button>
+          <span class="view-sub" id="laundry-status-label">${draft.laundryStatus==='dirty'?'Currently needs wash':'Currently clean'}</span>
+        </div>
+        <label style="display:block; font-size:12px; color:var(--ink-muted); margin-bottom:4px;">Wears before wash (0 = track manually)</label>
+        <input type="text" inputmode="numeric" id="f-wearsbeforewash" value="${draft.wearsBeforeWash}" style="max-width:90px;">
+      </div>
+      ${existing?`<div class="field"><label>Wear history</label><div class="view-sub">Worn ${draft.wearCount||0}× · Last worn ${fmtDate(draft.lastWorn)}</div></div>`:''}
+      <div class="modal-actions">
+        <div>${existing?`<button class="btn-danger" id="del-btn">Delete item</button>`:''}</div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="view-sub" id="photo-status-note" style="display:none;">Finishing photo…</span>
+          <button class="btn btn-ghost" id="cancel-btn">Cancel</button>
+          <button class="btn btn-primary" id="save-btn">Save</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  let photoProcessing = false;
+  function setPhotoProcessing(on){
+    photoProcessing = on;
+    const saveBtn = overlay.querySelector('#save-btn');
+    const note = overlay.querySelector('#photo-status-note');
+    if(saveBtn) saveBtn.disabled = on;
+    if(note) note.style.display = on ? 'inline' : 'none';
+  }
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+  overlay.querySelector('#cancel-btn').addEventListener('click', ()=> overlay.remove());
+  overlay.querySelector('#remove-bg-toggle').addEventListener('change', e=>{ removeBgOn = e.target.checked; });
+  async function processAndSetPhoto(file){
+    const uploadEl = overlay.querySelector('#photo-upload');
+    uploadEl.innerHTML = `<div class="photo-processing"><div class="spinner"></div><span>${removeBgOn? 'Removing background… (first time may take a bit — feel free to keep filling in the fields below)' : 'Processing photo…'}</span></div>`;
+    setPhotoProcessing(true);
+    try{
+      const dataUrl = await fileToProcessedDataURL(file, removeBgOn);
+      draft.image = dataUrl;
+      overlay.querySelector('#photo-upload').innerHTML = `<img src="${dataUrl}">`;
+    }catch(err){
+      toast('Could not read that photo — try another.');
+      overlay.querySelector('#photo-upload').innerHTML = `<span class="hint">📷 Tap to add a photo</span>`;
+    } finally {
+      setPhotoProcessing(false);
+    }
+  }
+  overlay.querySelector('#photo-upload').addEventListener('click', ()=> overlay.querySelector('#photo-input').click());
+  overlay.querySelector('#choose-photo-btn').addEventListener('click', ()=> overlay.querySelector('#photo-input').click());
+  overlay.querySelector('#take-photo-btn').addEventListener('click', ()=> openCameraCapture(draft.category, (file)=> processAndSetPhoto(file)));
+  overlay.querySelector('#photo-input').addEventListener('change', async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    await processAndSetPhoto(file);
+  });
+  overlay.querySelectorAll('.cat-opt').forEach(el=> el.addEventListener('click', ()=>{
+    draft.category = el.dataset.cat;
+    overlay.querySelectorAll('.cat-opt').forEach(o=>o.classList.toggle('active', o.dataset.cat===draft.category));
+    if(!existing){
+      draft.wearsBeforeWash = LAUNDRY_DEFAULT[draft.category] || 0;
+      const wbw = overlay.querySelector('#f-wearsbeforewash');
+      if(wbw) wbw.value = draft.wearsBeforeWash;
+    }
+  }));
+  function refreshColorUI(){
+    const field = overlay.querySelector('#color-swatch-grid').parentElement;
+    field.innerHTML = colorSwatchesHtml();
+    bindColorEvents();
+  }
+  function bindColorEvents(){
+    overlay.querySelectorAll('.color-swatch[data-name]').forEach(el=> el.addEventListener('click', ()=>{
+      draft.color = el.dataset.name; draft.colorHex = el.dataset.hex;
+      refreshColorUI();
+    }));
+    const customSwatch = overlay.querySelector('#custom-color-swatch');
+    const customInput = overlay.querySelector('#custom-color-input');
+    if(customSwatch && customInput){
+      customSwatch.addEventListener('click', ()=> customInput.click());
+      customInput.addEventListener('input', e=>{
+        draft.color = 'Custom'; draft.colorHex = e.target.value;
+        refreshColorUI();
+      });
+    }
+  }
+  bindColorEvents();
+  overlay.querySelectorAll('.season-opt').forEach(el=> el.addEventListener('click', ()=>{
+    const s = el.dataset.s;
+    if(draft.seasons.includes(s)){ draft.seasons = draft.seasons.filter(x=>x!==s); } else { draft.seasons.push(s); }
+    el.classList.toggle('active');
+  }));
+  overlay.querySelectorAll('.vibe-opt').forEach(el=> el.addEventListener('click', ()=>{
+    const v = el.dataset.v;
+    if(draft.vibes.includes(v)){ draft.vibes = draft.vibes.filter(x=>x!==v); } else { draft.vibes.push(v); }
+    el.classList.toggle('active');
+  }));
+  overlay.querySelector('#laundry-toggle-btn').addEventListener('click', ()=>{
+    draft.laundryStatus = draft.laundryStatus==='dirty' ? 'clean' : 'dirty';
+    if(draft.laundryStatus==='clean') draft.wearsSinceWash = 0;
+    overlay.querySelector('#laundry-toggle-btn').textContent = laundryBtnLabel();
+    overlay.querySelector('#laundry-status-label').textContent = draft.laundryStatus==='dirty' ? 'Currently needs wash' : 'Currently clean';
+  });
+  if(existing){
+    overlay.querySelector('#del-btn').addEventListener('click', async ()=>{
+      if(!confirm('Delete this item from your closet?')) return;
+      state.items = state.items.filter(i=>i.id!==existing.id);
+      await deleteItemStorage(existing.id);
+      overlay.remove(); toast('Item deleted'); renderView();
+    });
+  }
+  overlay.querySelector('#save-btn').addEventListener('click', async ()=>{
+    const name = overlay.querySelector('#f-name').value.trim();
+    if(!name){ toast('Give this item a name first'); return; }
+    draft.name = name;
+    if(draft.seasons.length===0) draft.seasons=['all-season'];
+    const wbwVal = parseInt(overlay.querySelector('#f-wearsbeforewash').value, 10);
+    draft.wearsBeforeWash = isNaN(wbwVal) ? 0 : Math.max(0, wbwVal);
+    if(existing){
+      const idx = state.items.findIndex(i=>i.id===existing.id); state.items[idx]=draft;
+    } else { state.items.push(draft); }
+    await persistItem(draft);
+    overlay.remove(); toast(existing?'Item updated':'Item added to closet'); renderView();
+  });
+}
+
+/* ---- Bulk add: pick several photos, auto-detect color, tap once per photo for category ---- */
+function openBulkAddModal(){
+  const overlay = document.createElement('div');
+  overlay.className = 'builder-overlay';
+  document.body.appendChild(overlay);
+  let removeBgOn = true;
+  let phase = 'select'; // 'select' -> 'processing' -> 'review'
+  let queue = []; // {id, file, status:'pending'|'done'|'error', dataUrl, colorHex, colorName, category, pickerOpen}
+
+  function renderPhase(){
+    if(phase==='select') renderSelect();
+    else if(phase==='processing') renderProcessing();
+    else renderReview();
+  }
+  function renderSelect(){
+    overlay.innerHTML = `
+      <div class="builder-header"><h3>Add multiple items</h3><button class="btn btn-ghost" id="bulk-close">✕ Close</button></div>
+      <div class="builder-main" style="max-width:480px; margin:0 auto;">
+        <p class="view-sub" style="margin-bottom:16px;">Pick several photos at once. Hang will remove backgrounds and guess each color automatically — you'll just tap once per photo to set its category.</p>
+        <label class="bg-remove-toggle"><input type="checkbox" id="bulk-remove-bg" ${removeBgOn?'checked':''}> ✂️ Remove background automatically</label>
+        <button class="btn btn-primary" id="bulk-choose-btn" style="width:100%; justify-content:center; margin-top:6px;">🖼️ Choose photos</button>
+        <input type="file" accept="image/*" multiple id="bulk-file-input" style="display:none">
+      </div>`;
+    overlay.querySelector('#bulk-close').addEventListener('click', ()=> overlay.remove());
+    overlay.querySelector('#bulk-remove-bg').addEventListener('change', e=>{ removeBgOn = e.target.checked; });
+    overlay.querySelector('#bulk-choose-btn').addEventListener('click', ()=> overlay.querySelector('#bulk-file-input').click());
+    overlay.querySelector('#bulk-file-input').addEventListener('change', (e)=>{
+      const files = Array.from(e.target.files || []);
+      if(files.length===0) return;
+      queue = files.map(f=>({ id:uid(), file:f, status:'pending', dataUrl:null, colorHex:null, colorName:null, category:null, pickerOpen:false }));
+      phase = 'processing';
+      renderPhase();
+      processQueue();
+    });
+  }
+  function renderProcessing(){
+    const doneCount = queue.filter(q=>q.status!=='pending').length;
+    overlay.innerHTML = `
+      <div class="builder-header"><h3>Processing photos…</h3><span></span></div>
+      <div class="builder-main" style="max-width:480px; margin:0 auto; text-align:center;">
+        <div class="photo-processing" style="margin:50px 0;">
+          <div class="spinner"></div>
+          <span>Processing ${doneCount} of ${queue.length}${removeBgOn? ' — first one may take a bit longer' : ''}</span>
+        </div>
+      </div>`;
+  }
+  async function processQueue(){
+    for(const q of queue){
+      try{
+        const dataUrl = await fileToProcessedDataURL(q.file, removeBgOn);
+        q.dataUrl = dataUrl;
+        const detected = await detectDominantColorHex(dataUrl);
+        if(detected){
+          q.colorHex = detected;
+          q.colorName = nearestPreset(detected).name;
+        }
+        q.status = 'done';
+      }catch(err){
+        console.error('bulk item failed', err);
+        q.status = 'error';
+      }
+      if(phase==='processing') renderPhase();
+    }
+    phase = 'review';
+    renderPhase();
+  }
+  function renderReview(){
+    const usable = queue.filter(q=>q.status==='done');
+    const failedCount = queue.filter(q=>q.status==='error').length;
+    const readyCount = usable.filter(q=>q.category).length;
+    overlay.innerHTML = `
+      <div class="builder-header"><h3>Set a category for each</h3><button class="btn btn-ghost" id="bulk-close2">✕ Close</button></div>
+      <div class="builder-body">
+        <div class="builder-main">
+          ${failedCount ? `<p class="view-sub" style="margin-bottom:14px; color:var(--danger);">${failedCount} photo${failedCount===1?'':'s'} couldn't be processed and ${failedCount===1?'was':'were'} skipped.</p>` : ''}
+          ${usable.length===0 ? `<div class="empty-state"><h3>Nothing to add</h3><p>None of those photos could be processed.</p></div>` : `
+            <div style="display:flex; flex-direction:column; gap:16px;">
+              ${usable.map((q,idx)=>`
+                <div class="bulk-review-row">
+                  <div class="bulk-review-photo"><img src="${q.dataUrl}"></div>
+                  <div style="flex:1; min-width:0;">
+                    <div class="cat-chips">
+                      ${CATEGORIES.map(c=>`<div class="chip cat-pick" data-qid="${q.id}" data-cat="${c}" style="${q.category===c?'background:var(--ink); color:var(--bg); border-color:var(--ink);':''}">${CAT_LABEL[c]}</div>`).join('')}
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-top:9px;">
+                      <div class="bulk-color-swatch" data-qid="${q.id}" style="background:${q.colorHex||'#ccc'};"></div>
+                      <span class="view-sub">${q.category ? `Will be named "${q.colorName} ${CAT_LABEL[q.category]}"` : (q.colorName||'Color') + ' detected — tap a category above'}</span>
+                    </div>
+                    ${q.pickerOpen ? `<div class="bulk-mini-picker" data-qid="${q.id}">
+                      ${COLOR_PRESETS.map(c=>`<div class="color-swatch" data-qid="${q.id}" data-name="${c.name}" data-hex="${c.hex}" style="background:${c.hex};" title="${c.name}"></div>`).join('')}
+                    </div>` : ''}
+                    ${idx===0 ? `<button class="btn-text" id="bulk-apply-all" style="padding:6px 0 0; font-size:12px;">Use this category for all photos</button>` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+        <div class="builder-cart">
+          <h3 style="font-size:16px; margin-bottom:8px;">${readyCount} of ${usable.length} ready</h3>
+          <p class="view-sub" style="margin-bottom:14px;">Tap a category chip on each photo. Color is guessed automatically — tap its swatch to change it.</p>
+          <div class="cart-actions">
+            <button class="btn btn-primary" id="bulk-save-btn" ${(usable.length>0 && readyCount===usable.length)?'':'disabled'}>Add ${usable.length} item${usable.length===1?'':'s'} to closet</button>
+          </div>
+        </div>
+      </div>`;
+    overlay.querySelector('#bulk-close2').addEventListener('click', ()=> overlay.remove());
+    overlay.querySelectorAll('.cat-pick').forEach(el=> el.addEventListener('click', ()=>{
+      const q = queue.find(x=>x.id===el.dataset.qid);
+      if(q) q.category = el.dataset.cat;
+      renderReview();
+    }));
+    overlay.querySelectorAll('.bulk-color-swatch').forEach(el=> el.addEventListener('click', ()=>{
+      const q = queue.find(x=>x.id===el.dataset.qid);
+      if(q){ q.pickerOpen = !q.pickerOpen; renderReview(); }
+    }));
+    overlay.querySelectorAll('.bulk-mini-picker .color-swatch').forEach(el=> el.addEventListener('click', ()=>{
+      const q = queue.find(x=>x.id===el.dataset.qid);
+      if(q){ q.colorHex = el.dataset.hex; q.colorName = el.dataset.name; q.pickerOpen = false; renderReview(); }
+    }));
+    const applyAllBtn = overlay.querySelector('#bulk-apply-all');
+    if(applyAllBtn) applyAllBtn.addEventListener('click', ()=>{
+      const cat = usable[0].category;
+      if(!cat){ toast('Tap a category on the first photo first'); return; }
+      usable.forEach(q=> q.category = cat);
+      renderReview();
+    });
+    const saveBtn = overlay.querySelector('#bulk-save-btn');
+    if(saveBtn) saveBtn.addEventListener('click', async ()=>{
+      saveBtn.disabled = true; saveBtn.textContent = 'Adding…';
+      for(const q of usable){
+        const item = {
+          id: uid(),
+          name: `${q.colorName || 'Item'} ${CAT_LABEL[q.category]}`,
+          category: q.category,
+          color: q.colorName || '',
+          colorHex: q.colorHex || null,
+          seasons: ['all-season'],
+          vibes: [],
+          image: q.dataUrl,
+          wearCount: 0, lastWorn: null, wearHistory: [], createdAt: Date.now(),
+          laundryStatus: 'clean', wearsSinceWash: 0, wearsBeforeWash: LAUNDRY_DEFAULT[q.category] || 0
+        };
+        state.items.push(item);
+        await persistItem(item);
+      }
+      overlay.remove();
+      toast(`Added ${usable.length} item${usable.length===1?'':'s'} to your closet ✓`);
+      renderView();
+    });
+  }
+  renderPhase();
+}
+
+/* ============== OUTFITS VIEW ============== */
+function renderOutfits(root){
+  root.innerHTML = `
+    <div class="view-header">
+      <div><h2>Outfits</h2><div class="view-sub">${state.outfits.length} saved outfit${state.outfits.length===1?'':'s'}</div></div>
+      <button class="btn btn-primary" id="add-outfit-btn">${ICONS.plus}Create outfit</button>
+    </div>
+    ${ state.outfits.length===0 ? `<div class="empty-state"><h3>No outfits yet</h3><p>Combine items from your closet into an outfit you can quickly log as worn.</p>
+        <button class="btn btn-primary" onclick="document.getElementById('add-outfit-btn').click()">${ICONS.plus} Create outfit</button></div>`
+      : `<div class="grid">${state.outfits.map(outfitCard).join('')}</div>` }
+  `;
+  root.querySelector('#add-outfit-btn').addEventListener('click', ()=> openOutfitBuilder({mode:'outfit'}));
+  root.querySelectorAll('.tag-card[data-outfit]').forEach(el=> el.addEventListener('click', ()=> {
+    const outfit = state.outfits.find(o=>o.id===el.dataset.outfit);
+    openOutfitBuilder({mode:'outfit', existingOutfit:outfit});
+  }));
+}
+function outfitItems(outfit){ return outfit.itemIds.map(id=> state.items.find(i=>i.id===id)).filter(Boolean); }
+function outfitCard(outfit){
+  const items = outfitItems(outfit).slice(0,4);
+  return `<div class="tag-card" data-outfit="${outfit.id}">
+    <div class="tag-hole"></div>
+    ${outfit.wearCount>0?`<div class="tag-badge">×${outfit.wearCount}</div>`:''}
+    <div class="tag-photo"><div class="collage ${items.length<=1?'single':''}">
+      ${items.length? items.map(i=>`<img src="${i.image||''}" onerror="this.style.display='none'">`).join('') : `<span class="ph-icon">🧥</span>`}
+    </div></div>
+    <div class="tag-name">${escapeHtml(outfit.name)}</div>
+    <div class="tag-meta mono">${items.length} piece${items.length===1?'':'s'}</div>
+  </div>`;
+}
+/* ---- Outfit builder: scroll-and-tap "cart" style ---- */
+function openOutfitBuilder(opts){
+  opts = opts || {mode:'outfit'};
+  const mode = opts.mode;
+  const existing = opts.existingOutfit || null;
+  const draft = { itemIds: existing ? [...existing.itemIds] : [], name: existing ? existing.name : '' };
+  const filters = { cat:'all', occasion:'all', season:'all', q:'', hideLaundry:true };
+
+  const overlay = document.createElement('div');
+  overlay.className = 'builder-overlay';
+  document.body.appendChild(overlay);
+
+  function filteredItems(){
+    return state.items.filter(i=>{
+      if(filters.hideLaundry && i.laundryStatus==='dirty') return false;
+      if(filters.cat!=='all' && i.category!==filters.cat) return false;
+      if(filters.occasion!=='all' && !occasionMatch(i, filters.occasion)) return false;
+      if(filters.season!=='all' && !(i.seasons||[]).includes(filters.season)) return false;
+      if(filters.q && !(i.name.toLowerCase().includes(filters.q.toLowerCase()) || (i.color||'').toLowerCase().includes(filters.q.toLowerCase()))) return false;
+      return true;
+    });
+  }
+  function selectedItems(){ return draft.itemIds.map(id=>state.items.find(i=>i.id===id)).filter(Boolean); }
+
+  function renderAll(){
+    const items = filteredItems();
+    const sel = selectedItems();
+    const occForScore = filters.occasion!=='all' ? filters.occasion : null;
+    const score = comboScoreOutOf10(sel, occForScore);
+    const reason = comboReason(sel, occForScore);
+    overlay.innerHTML = `
+      <div class="builder-header">
+        <h3>${mode==='today' ? "Build today's outfit" : (existing?'Edit outfit':'Build an outfit')}</h3>
+        <button class="btn btn-ghost" id="builder-close">✕ Close</button>
+      </div>
+      <div class="builder-body">
+        <div class="builder-main">
+          <div class="builder-filterbar">
+            <div class="chip ${filters.cat==='all'?'active':''}" data-f="cat" data-v="all">All</div>
+            ${CATEGORIES.map(c=>`<div class="chip ${filters.cat===c?'active':''}" data-f="cat" data-v="${c}">${CAT_LABEL[c]}</div>`).join('')}
+          </div>
+          <div class="builder-filterbar">
+            <div class="chip ${filters.occasion==='all'?'active':''}" data-f="occasion" data-v="all">Any occasion</div>
+            ${VIBES.map(v=>`<div class="chip ${filters.occasion===v?'active':''}" data-f="occasion" data-v="${v}">${VIBE_LABEL[v]}</div>`).join('')}
+          </div>
+          <div class="builder-filterbar">
+            <select id="builder-season"><option value="all">Any season</option>${SEASONS.map(s=>`<option value="${s}" ${filters.season===s?'selected':''}>${s[0].toUpperCase()+s.slice(1)}</option>`).join('')}</select>
+            <input class="search-input" id="builder-search" placeholder="Search…" value="${escapeHtml(filters.q)}">
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-muted);">
+              <input type="checkbox" id="builder-hidelaundry" ${filters.hideLaundry?'checked':''}> Hide items needing wash
+            </label>
+          </div>
+          ${items.length===0 ? `<div class="empty-state"><h3>No items match</h3><p>Try adjusting filters, or add more to your closet.</p></div>` : `
+          <div class="builder-grid">
+            ${items.map(i=>`<div class="builder-tile ${draft.itemIds.includes(i.id)?'selected':''}" data-pick="${i.id}">
+              ${i.image?`<img src="${i.image}">`:''}
+              ${i.laundryStatus==='dirty'?'<div class="laundry-flag">WASH</div>':''}
+              ${draft.itemIds.includes(i.id)?'<div class="check">✓</div>':''}
+            </div>`).join('')}
+          </div>`}
+        </div>
+        <div class="builder-cart">
+          <h3 style="font-size:17px; margin-bottom:10px;">Your picks (${sel.length})</h3>
+          ${sel.length ? `<div class="cart-items">${sel.map(i=>`<div class="cart-item" data-remove="${i.id}">${i.image?`<img src="${i.image}">`:''}<div class="remove">✕</div></div>`).join('')}</div>` : `<div class="view-sub" style="margin-bottom:12px;">Tap photos on the left to add them here.</div>`}
+          <div class="score-badge"><span class="num">${sel.length?score:'—'}</span>/10 · ${reason}</div>
+          ${mode==='outfit' ? `<div class="field"><label>Outfit name</label><input type="text" id="builder-name" placeholder="e.g. Rainy Tuesday" value="${escapeHtml(draft.name)}"></div>` : ''}
+          <div class="cart-actions">
+            ${mode==='today'
+              ? `<button class="btn btn-primary" id="builder-wear-now" ${sel.length===0?'disabled':''}>✓ Wear this now</button>`
+              : `<button class="btn btn-primary" id="builder-save" ${sel.length===0?'disabled':''}>Save outfit</button>
+                 ${existing?`<button class="btn btn-ghost" id="builder-wear-outfit-now">✓ Wear this outfit today</button>`:''}`
+            }
+            ${existing?`<button class="btn-danger" id="builder-delete">Delete outfit</button>`:''}
+          </div>
+        </div>
+      </div>
+    `;
+    bindEvents();
+  }
+  function bindEvents(){
+    overlay.querySelector('#builder-close').addEventListener('click', ()=> overlay.remove());
+    overlay.querySelectorAll('.chip[data-f]').forEach(el=> el.addEventListener('click', ()=>{
+      filters[el.dataset.f] = el.dataset.v; renderAll();
+    }));
+    const seasonSel = overlay.querySelector('#builder-season');
+    if(seasonSel) seasonSel.addEventListener('change', e=>{ filters.season = e.target.value; renderAll(); });
+    const searchInp = overlay.querySelector('#builder-search');
+    if(searchInp) searchInp.addEventListener('input', e=>{
+      filters.q = e.target.value; renderAll();
+      const ni = overlay.querySelector('#builder-search');
+      if(ni){ ni.focus(); ni.setSelectionRange(ni.value.length, ni.value.length); }
+    });
+    const hideCb = overlay.querySelector('#builder-hidelaundry');
+    if(hideCb) hideCb.addEventListener('change', e=>{ filters.hideLaundry = e.target.checked; renderAll(); });
+    overlay.querySelectorAll('.builder-tile[data-pick]').forEach(el=> el.addEventListener('click', ()=>{
+      const id = el.dataset.pick;
+      if(draft.itemIds.includes(id)) draft.itemIds = draft.itemIds.filter(x=>x!==id);
+      else draft.itemIds.push(id);
+      renderAll();
+    }));
+    overlay.querySelectorAll('.cart-item[data-remove]').forEach(el=> el.addEventListener('click', ()=>{
+      draft.itemIds = draft.itemIds.filter(x=>x!==el.dataset.remove);
+      renderAll();
+    }));
+    const nameInp = overlay.querySelector('#builder-name');
+    if(nameInp) nameInp.addEventListener('input', e=>{ draft.name = e.target.value; });
+    const saveBtn = overlay.querySelector('#builder-save');
+    if(saveBtn) saveBtn.addEventListener('click', async ()=>{
+      const nameVal = (overlay.querySelector('#builder-name')?.value || '').trim();
+      if(!nameVal){ toast('Give this outfit a name'); return; }
+      if(draft.itemIds.length===0){ toast('Pick at least one item'); return; }
+      const outfitObj = existing
+        ? {...existing, name:nameVal, itemIds:[...draft.itemIds]}
+        : { id:uid(), name:nameVal, itemIds:[...draft.itemIds], wearCount:0, lastWorn:null, createdAt:Date.now() };
+      if(existing){ const idx = state.outfits.findIndex(o=>o.id===existing.id); state.outfits[idx]=outfitObj; }
+      else state.outfits.push(outfitObj);
+      await persistOutfit(outfitObj);
+      overlay.remove(); toast(existing?'Outfit updated':'Outfit saved'); renderView();
+    });
+    const wearNowBtn = overlay.querySelector('#builder-wear-now');
+    if(wearNowBtn) wearNowBtn.addEventListener('click', async ()=>{
+      const t = todayStr();
+      for(const item of selectedItems()){ applyWear(item, t); await persistItem(item); }
+      state.todayWornLog = t; state.todaySuggestion = selectedItems();
+      overlay.remove(); toast('Logged as worn today ✓'); renderView();
+    });
+    const wearOutfitBtn = overlay.querySelector('#builder-wear-outfit-now');
+    if(wearOutfitBtn) wearOutfitBtn.addEventListener('click', async ()=>{
+      const t = todayStr();
+      for(const item of selectedItems()){ applyWear(item, t); await persistItem(item); }
+      existing.wearCount = (existing.wearCount||0)+1; existing.lastWorn = t;
+      await persistOutfit(existing);
+      overlay.remove(); toast('Outfit logged as worn ✓'); renderView();
+    });
+    const delBtn = overlay.querySelector('#builder-delete');
+    if(delBtn) delBtn.addEventListener('click', async ()=>{
+      if(!confirm('Delete this outfit?')) return;
+      state.outfits = state.outfits.filter(o=>o.id!==existing.id);
+      await deleteOutfitStorage(existing.id);
+      overlay.remove(); toast('Outfit deleted'); renderView();
+    });
+  }
+  renderAll();
+}
+
+/* ============== TODAY VIEW ============== */
+function generateSuggestion(occasion, includeLaundry){
+  const pool = state.items.filter(i=> includeLaundry || i.laundryStatus!=='dirty');
+  const byCat = {};
+  CATEGORIES.forEach(c=> byCat[c] = pool.filter(i=>i.category===c));
+  function candidatesFor(cat){
+    const all = byCat[cat];
+    if(!occasion) return all;
+    const matched = all.filter(i=>occasionMatch(i, occasion));
+    return matched.length ? matched : all;
+  }
+  function pickFirst(arr){
+    if(arr.length===0) return null;
+    const sorted = arr.slice().sort((a,b)=> (a.wearCount||0)-(b.wearCount||0));
+    const minWear = sorted[0].wearCount||0;
+    const pool2 = sorted.filter(x=> (x.wearCount||0)===minWear);
+    return pool2[Math.floor(Math.random()*pool2.length)];
+  }
+  function pickBest(arr, chosen){
+    if(arr.length===0) return null;
+    let best=null, bestScore=-Infinity;
+    const shuffled = arr.slice().sort(()=>Math.random()-0.5);
+    for(const cand of shuffled){
+      const colorScore = comboColorScore([...chosen, cand]);
+      const wearPenalty = (cand.wearCount||0)*0.05;
+      const jitter = Math.random()*0.2;
+      const s = colorScore - wearPenalty + jitter;
+      if(s>bestScore){ bestScore=s; best=cand; }
+    }
+    return best;
+  }
+  const picks = [];
+  const dressCandidates = candidatesFor('dress');
+  const useDress = dressCandidates.length>0 && Math.random() < 0.4;
+  if(useDress){
+    picks.push(pickFirst(dressCandidates));
+  } else {
+    const top = pickFirst(candidatesFor('top')); if(top) picks.push(top);
+    const bottom = pickBest(candidatesFor('bottom'), picks); if(bottom) picks.push(bottom);
+  }
+  const shoes = pickBest(candidatesFor('shoes'), picks); if(shoes) picks.push(shoes);
+  if(candidatesFor('outerwear').length>0 && Math.random()<0.5){ const o=pickBest(candidatesFor('outerwear'), picks); if(o) picks.push(o); }
+  if(candidatesFor('accessory').length>0 && Math.random()<0.5){ const a=pickBest(candidatesFor('accessory'), picks); if(a) picks.push(a); }
+  return picks.filter(Boolean);
+}
+// Renders a suggested/selected outfit as one continuous "flat lay" frame —
+// pieces are absolutely positioned so they overlap like actually-worn garments,
+// on one shared stage, instead of sitting in separate cards.
+function renderOutfitDisplay(items){
+  const dress = items.find(i=>i.category==='dress');
+  const top = items.find(i=>i.category==='top');
+  const bottom = items.find(i=>i.category==='bottom');
+  const shoes = items.find(i=>i.category==='shoes');
+  const outerwear = items.find(i=>i.category==='outerwear');
+  const accessory = items.find(i=>i.category==='accessory');
+
+  const layers = [];
+  if(dress){
+    layers.push({item:dress, style:'top:2%; left:18%; width:64%; height:66%; z-index:2;'});
+    if(shoes) layers.push({item:shoes, style:'top:65%; left:30%; width:42%; height:22%; z-index:3;'});
+  } else {
+    if(top) layers.push({item:top, style:'top:0%; left:20%; width:60%; height:42%; z-index:2;'});
+    if(bottom) layers.push({item:bottom, style:'top:19%; left:22%; width:56%; height:57%; z-index:1;'});
+    if(shoes) layers.push({item:shoes, style:'top:73%; left:30%; width:42%; height:20%; z-index:3;'});
+  }
+  if(outerwear) layers.push({item:outerwear, style:'top:-2%; left:0%; width:50%; height:48%; z-index:4;'});
+  if(accessory) layers.push({item:accessory, style:'top:0%; left:72%; width:24%; height:24%; z-index:5;'});
+
+  const caption = layers.map(l=>`${CAT_LABEL[l.item.category]}: ${escapeHtml(l.item.name)}`).join(' &nbsp;·&nbsp; ');
+  return `<div class="outfit-stage">
+    ${layers.map(l=>`<div class="stage-item" style="${l.style}">${l.item.image?`<img src="${l.item.image}">`:`<span class="ph-icon">👕</span>`}</div>`).join('')}
+  </div>
+  <div class="outfit-caption">${caption}</div>`;
+}
+function renderToday(root){
+  const occ = state.todayOccasion==='all' ? null : state.todayOccasion;
+  if(!state.todaySuggestion) state.todaySuggestion = generateSuggestion(occ, state.todayIncludeLaundry);
+  const items = state.todaySuggestion;
+  const score = comboScoreOutOf10(items, occ);
+  const reason = comboReason(items, occ);
+  const wornToday = state.todayWornLog===todayStr();
+  root.innerHTML = `
+    <div class="view-header" style="margin-bottom:12px;"><div><h2 style="font-size:23px;">Today</h2><div class="view-sub">${new Date().toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric'})}</div></div></div>
+    ${wornToday? `<div class="worn-banner">✓ Logged as worn today</div>` : ''}
+    <div class="filter-bar" style="margin-bottom:8px;">
+      <div class="chip ${state.todayOccasion==='all'?'active':''}" data-occ="all">Any occasion</div>
+      ${VIBES.map(v=>`<div class="chip ${state.todayOccasion===v?'active':''}" data-occ="${v}">${VIBE_LABEL[v]}</div>`).join('')}
+    </div>
+    <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-muted); margin-bottom:10px;">
+      <input type="checkbox" id="today-hidelaundry" ${state.todayIncludeLaundry?'checked':''}> Include items that need washing
+    </label>
+    <div class="today-card">
+      <div class="today-date mono">SUGGESTED PICK</div>
+      <h3 style="font-size:17px;">${items.length? 'A good option for today' : 'Add some items first'}</h3>
+      ${items.length===0 ? `<p class="view-sub">Your closet needs at least a top/bottom or dress and shoes before Hang can suggest an outfit.</p>` : `
+        ${renderOutfitDisplay(items)}
+        <div class="score-badge" style="max-width:340px; margin:0 auto 4px;"><span class="num">${score}</span>/10 · ${reason}</div>
+        <div class="today-actions" style="justify-content:center;">
+          <button class="btn btn-primary" id="wear-today-btn">✓ Wear this today</button>
+          <button class="btn btn-ghost" id="shuffle-btn">🔀 Shuffle</button>
+        </div>
+      `}
+      <div style="margin-top:8px; text-align:center;"><button class="btn btn-text" id="build-own-btn">🧵 Build your own instead</button></div>
+    </div>
+  `;
+  root.querySelectorAll('.chip[data-occ]').forEach(el=> el.addEventListener('click', ()=>{
+    state.todayOccasion = el.dataset.occ;
+    state.todaySuggestion = generateSuggestion(state.todayOccasion==='all'?null:state.todayOccasion, state.todayIncludeLaundry);
+    renderView();
+  }));
+  root.querySelector('#today-hidelaundry').addEventListener('change', e=>{
+    state.todayIncludeLaundry = e.target.checked;
+    state.todaySuggestion = generateSuggestion(occ, state.todayIncludeLaundry);
+    renderView();
+  });
+  root.querySelector('#build-own-btn').addEventListener('click', ()=> openOutfitBuilder({mode:'today'}));
+  const shuffleBtn = root.querySelector('#shuffle-btn');
+  if(shuffleBtn) shuffleBtn.addEventListener('click', ()=>{ state.todaySuggestion = generateSuggestion(occ, state.todayIncludeLaundry); renderView(); });
+  const wearBtn = root.querySelector('#wear-today-btn');
+  if(wearBtn) wearBtn.addEventListener('click', async ()=>{
+    const t = todayStr();
+    for(const i of items){
+      const idx = state.items.findIndex(x=>x.id===i.id);
+      applyWear(state.items[idx], t);
+      await persistItem(state.items[idx]);
+    }
+    state.todayWornLog = t;
+    toast('Logged as worn today ✓');
+    renderView();
+  });
+}
+
+/* ============== STATS VIEW ============== */
+function renderStats(root){
+  const items = state.items;
+  const totalWears = items.reduce((s,i)=> s+(i.wearCount||0), 0);
+  const mostWorn = items.slice().sort((a,b)=>(b.wearCount||0)-(a.wearCount||0)).slice(0,5);
+  const neverWorn = items.filter(i=>!i.wearCount);
+  const dirtyItems = items.filter(i=>i.laundryStatus==='dirty');
+  const byCat = {};
+  CATEGORIES.forEach(c=> byCat[c] = items.filter(i=>i.category===c).length);
+  const maxCat = Math.max(1, ...Object.values(byCat));
+  root.innerHTML = `
+    <div class="view-header"><h2>Stats</h2></div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="num mono">${items.length}</div><div class="label">Items in closet</div></div>
+      <div class="stat-box"><div class="num mono">${state.outfits.length}</div><div class="label">Saved outfits</div></div>
+      <div class="stat-box"><div class="num mono">${totalWears}</div><div class="label">Total wears logged</div></div>
+      <div class="stat-box"><div class="num mono">${neverWorn.length}</div><div class="label">Never worn yet</div></div>
+      <div class="stat-box"><div class="num mono" style="color:${dirtyItems.length?'var(--danger)':'var(--rust)'}">${dirtyItems.length}</div><div class="label">Needs washing</div></div>
+    </div>
+    <h3 style="margin-bottom:12px; font-size:17px;">Closet breakdown</h3>
+    <div style="margin-bottom:28px;">
+      ${CATEGORIES.map(c=>`<div class="bar-row">
+        <div class="bar-label">${CAT_LABEL[c]}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(byCat[c]/maxCat)*100}%"></div></div>
+        <div class="bar-val mono">${byCat[c]}</div>
+      </div>`).join('')}
+    </div>
+    <h3 style="margin-bottom:8px; font-size:17px;">Most worn</h3>
+    <div class="stat-box" style="margin-bottom:20px;">
+      ${mostWorn.length===0? `<div class="view-sub">Log a few outfits and this will fill in.</div>` :
+        mostWorn.map(i=>`<div class="stat-list-row">
+          <div class="tag-photo">${i.image?`<img src="${i.image}">`:''}</div>
+          <div><div class="stat-list-name">${escapeHtml(i.name)}</div><div class="stat-list-sub mono">Worn ${i.wearCount||0}× · Last ${fmtDate(i.lastWorn)}</div></div>
+        </div>`).join('')}
+    </div>
+    <h3 style="margin-bottom:8px; font-size:17px;">Needs some love</h3>
+    <div class="stat-box">
+      ${neverWorn.length===0? `<div class="view-sub">Everything in your closet has been worn at least once.</div>` :
+        neverWorn.slice(0,6).map(i=>`<div class="stat-list-row">
+          <div class="tag-photo">${i.image?`<img src="${i.image}">`:''}</div>
+          <div><div class="stat-list-name">${escapeHtml(i.name)}</div><div class="stat-list-sub mono">Never worn</div></div>
+        </div>`).join('')}
+    </div>
+  `;
+}
+
+/* ============== INIT ============== */
+render();
+if(!CONFIG_MISSING){
+  onAuthStateChanged(auth, (user)=>{
+    state.user = user;
+    if(user){
+      state.loaded = false;
+      render();
+      loadAll();
+    } else {
+      state.items = []; state.outfits = []; state.loaded = false;
+      render();
+    }
+  });
+}
+</script>
+</body>
+</html>
